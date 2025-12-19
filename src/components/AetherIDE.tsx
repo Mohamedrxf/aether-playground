@@ -55,9 +55,14 @@ const detectLanguage = (fileName: string, code: string): string => {
     return "Java";
   }
 
-  // C/C++ patterns
-  if (/#include\s*[<"]/.test(code) || /int\s+main\s*\(/.test(code) || /printf\s*\(/.test(code) || /cout\s*<</.test(code) || /std::/.test(code)) {
-    return "C/C++";
+  // C++ patterns (check first - more specific)
+  if (/cout\s*<</.test(code) || /std::/.test(code) || /cin\s*>>/.test(code) || /#include\s*<iostream>/.test(code) || /using\s+namespace\s+std/.test(code) || /\bclass\s+\w+\s*\{/.test(code) || /\bnew\s+\w+/.test(code) || /\bdelete\s+/.test(code)) {
+    return "C++";
+  }
+
+  // C patterns
+  if (/#include\s*<stdio\.h>/.test(code) || /printf\s*\(/.test(code) || /scanf\s*\(/.test(code) || /#include\s*<stdlib\.h>/.test(code) || /int\s+main\s*\(/.test(code) && !(/cout|cin|std::/.test(code))) {
+    return "C";
   }
 
   // Go patterns
@@ -106,6 +111,67 @@ const detectLanguage = (fileName: string, code: string): string => {
   return "Unknown";
 };
 
+// Extract print statements from code based on language
+const extractOutputStatements = (code: string, language: string): string[] => {
+  const outputs: string[] = [];
+  
+  // Python: print("...") or print('...')
+  const pythonMatches = code.matchAll(/print\s*\(\s*(?:f?["']([^"']*?)["']|(\w+))\s*\)/g);
+  for (const match of pythonMatches) {
+    outputs.push(match[1] || match[2] || "");
+  }
+
+  // JavaScript/TypeScript: console.log("...")
+  const jsMatches = code.matchAll(/console\.log\s*\(\s*["'`]([^"'`]*?)["'`]\s*\)/g);
+  for (const match of jsMatches) {
+    outputs.push(match[1]);
+  }
+
+  // Java: System.out.println("...") or System.out.print("...")
+  const javaMatches = code.matchAll(/System\.out\.print(?:ln)?\s*\(\s*["']([^"']*?)["']\s*\)/g);
+  for (const match of javaMatches) {
+    outputs.push(match[1]);
+  }
+
+  // C: printf("...")
+  const cMatches = code.matchAll(/printf\s*\(\s*["']([^"']*?)["']/g);
+  for (const match of cMatches) {
+    outputs.push(match[1].replace(/\\n/g, ""));
+  }
+
+  // C++: cout << "..."
+  const cppMatches = code.matchAll(/cout\s*<<\s*["']([^"']*?)["']/g);
+  for (const match of cppMatches) {
+    outputs.push(match[1]);
+  }
+
+  // Go: fmt.Println("...") or fmt.Print("...")
+  const goMatches = code.matchAll(/fmt\.Print(?:ln|f)?\s*\(\s*["']([^"']*?)["']/g);
+  for (const match of goMatches) {
+    outputs.push(match[1]);
+  }
+
+  // Rust: println!("...")
+  const rustMatches = code.matchAll(/println!\s*\(\s*["']([^"']*?)["']/g);
+  for (const match of rustMatches) {
+    outputs.push(match[1]);
+  }
+
+  // Ruby: puts "..."
+  const rubyMatches = code.matchAll(/puts\s+["']([^"']*?)["']/g);
+  for (const match of rubyMatches) {
+    outputs.push(match[1]);
+  }
+
+  // PHP: echo "..."
+  const phpMatches = code.matchAll(/echo\s+["']([^"']*?)["']/g);
+  for (const match of phpMatches) {
+    outputs.push(match[1]);
+  }
+
+  return outputs.filter(o => o.length > 0);
+};
+
 // Simulate code execution
 const simulateExecution = async (
   code: string,
@@ -118,18 +184,16 @@ const simulateExecution = async (
 
   await new Promise((r) => setTimeout(r, 500));
 
-  // Simulate different outputs based on code content
-  if (code.includes("print") || code.includes("console.log") || code.includes("System.out")) {
-    const matches = code.match(/(?:print|console\.log|System\.out\.println)\s*\(\s*["']([^"']+)["']\s*\)/g);
-    if (matches) {
-      for (const match of matches) {
-        const content = match.match(/["']([^"']+)["']/)?.[1] || "";
-        await new Promise((r) => setTimeout(r, 100));
-        onOutput({ type: "stdout", content });
-      }
-    } else {
-      onOutput({ type: "stdout", content: "Hello, World!" });
+  // Extract actual output statements from code
+  const outputs = extractOutputStatements(code, language);
+  
+  if (outputs.length > 0) {
+    for (const content of outputs) {
+      await new Promise((r) => setTimeout(r, 100));
+      onOutput({ type: "stdout", content });
     }
+  } else if (code.trim().length > 0) {
+    onOutput({ type: "status", content: "Program executed successfully (no output)" });
   }
 
   if (code.includes("error") || code.includes("Error") || code.includes("throw")) {
