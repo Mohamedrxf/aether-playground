@@ -1,4 +1,4 @@
-import { Play, Zap, Settings, FileCode2, Cpu } from "lucide-react";
+import { Play, Zap, Settings, FileCode2 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { FileInput } from "@/components/ui/file-input";
 import { ToggleSwitch } from "@/components/ui/toggle-switch";
@@ -21,23 +21,12 @@ export function Toolbar({
   onAutoDetectToggle,
   onRun,
   isRunning = false,
-  detectedLanguage
+  detectedLanguage,
 }: ToolbarProps) {
   return (
     <div className="flex items-center justify-between h-14 px-4 glass-panel rounded-t-2xl border-b-0 rounded-b-none">
-      {/* Left side - Logo & File */}
+      {/* Left side - File */}
       <div className="flex items-center gap-4">
-        {/* Logo */}
-        <div className="flex items-center gap-2">
-          <div className="relative">
-            <Cpu className="w-6 h-6 text-primary" />
-            <div className="absolute inset-0 blur-md bg-primary/30" />
-          </div>
-          <span className="text-lg font-semibold gradient-text">AETHER</span>
-        </div>
-
-        <div className="w-px h-6 bg-border/50" />
-
         {/* File input */}
         <div className="flex items-center gap-2">
           <FileCode2 className="w-4 h-4 text-muted-foreground" />
@@ -54,10 +43,12 @@ export function Toolbar({
         {/* Auto-detect toggle */}
         <div className="flex items-center gap-3">
           <div className="flex items-center gap-2">
-            <Zap className={cn(
-              "w-4 h-4 transition-colors",
-              autoDetect ? "text-primary" : "text-muted-foreground"
-            )} />
+            <Zap
+              className={cn(
+                "w-4 h-4 transition-colors",
+                autoDetect ? "text-primary" : "text-muted-foreground"
+              )}
+            />
             <ToggleSwitch
               enabled={autoDetect}
               onToggle={onAutoDetectToggle}
@@ -65,7 +56,7 @@ export function Toolbar({
               glowWhenEnabled={true}
             />
           </div>
-          
+
           {detectedLanguage && autoDetect && (
             <span className="text-xs text-primary bg-primary/10 px-2 py-0.5 rounded-md border border-primary/20">
               {detectedLanguage}
@@ -76,7 +67,11 @@ export function Toolbar({
         <div className="w-px h-6 bg-border/50" />
 
         {/* Settings */}
-        <Button variant="ghost" size="icon" className="text-muted-foreground hover:text-foreground">
+        <Button
+          variant="ghost"
+          size="icon"
+          className="text-muted-foreground hover:text-foreground"
+        >
           <Settings className="w-4 h-4" />
         </Button>
 
