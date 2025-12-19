@@ -111,6 +111,140 @@ const detectLanguage = (fileName: string, code: string): string => {
   return "Unknown";
 };
 
+// Validate syntax and return errors
+const validateSyntax = (code: string, language: string): string[] => {
+  const errors: string[] = [];
+  const lines = code.split('\n');
+
+  // Common typo patterns
+  const commonTypos: Record<string, string> = {
+    'cut': 'cout',
+    'cot': 'cout',
+    'coout': 'cout',
+    'coutt': 'cout',
+    'prnt': 'print',
+    'pritn': 'print',
+    'prnit': 'print',
+    'consol': 'console',
+    'consolee': 'console',
+    'consle': 'console',
+    'Sytem': 'System',
+    'Systme': 'System',
+    'pirntf': 'printf',
+    'printff': 'printf',
+    'prnitf': 'printf',
+    'scnaf': 'scanf',
+    'sacnf': 'scanf',
+    'incldue': 'include',
+    'inculde': 'include',
+    'reutrn': 'return',
+    'retrun': 'return',
+    'rteurn': 'return',
+  };
+
+  // Check for common typos
+  for (const [typo, correct] of Object.entries(commonTypos)) {
+    const regex = new RegExp(`\\b${typo}\\b`, 'gi');
+    if (regex.test(code)) {
+      errors.push(`Syntax Error: '${typo}' is not recognized. Did you mean '${correct}'?`);
+    }
+  }
+
+  // C++ specific validation
+  if (language === "C++") {
+    if (/cout\s*<</.test(code) && !/#include\s*<iostream>/.test(code)) {
+      errors.push("Error: Missing '#include <iostream>' for cout usage");
+    }
+    if (/cout\s*<</.test(code) && !(/using\s+namespace\s+std/.test(code) || /std::cout/.test(code))) {
+      errors.push("Error: Missing 'using namespace std;' or use 'std::cout' instead of 'cout'");
+    }
+    if (/cin\s*>>/.test(code) && !/#include\s*<iostream>/.test(code)) {
+      errors.push("Error: Missing '#include <iostream>' for cin usage");
+    }
+    if (!/int\s+main\s*\(/.test(code) && code.trim().length > 0) {
+      errors.push("Error: Missing 'int main()' function");
+    }
+    if (/int\s+main\s*\(/.test(code) && !/return\s+0\s*;/.test(code)) {
+      errors.push("Warning: Missing 'return 0;' in main function");
+    }
+    // Check for missing semicolons
+    for (let i = 0; i < lines.length; i++) {
+      const line = lines[i].trim();
+      if (line && !line.startsWith('//') && !line.startsWith('#') && !line.startsWith('{') && !line.startsWith('}') && !line.endsWith('{') && !line.endsWith('}') && !line.endsWith(';') && !/^\s*$/.test(line) && !line.includes('int main') && !line.includes('if') && !line.includes('else') && !line.includes('for') && !line.includes('while')) {
+        if (line.includes('cout') || line.includes('cin') || line.includes('return') || /^\w+\s+\w+\s*=/.test(line)) {
+          errors.push(`Error at line ${i + 1}: Missing semicolon ';'`);
+        }
+      }
+    }
+  }
+
+  // C specific validation
+  if (language === "C") {
+    if (/printf\s*\(/.test(code) && !/#include\s*<stdio\.h>/.test(code)) {
+      errors.push("Error: Missing '#include <stdio.h>' for printf usage");
+    }
+    if (/scanf\s*\(/.test(code) && !/#include\s*<stdio\.h>/.test(code)) {
+      errors.push("Error: Missing '#include <stdio.h>' for scanf usage");
+    }
+    if (!/int\s+main\s*\(/.test(code) && code.trim().length > 0) {
+      errors.push("Error: Missing 'int main()' function");
+    }
+  }
+
+  // Python specific validation
+  if (language === "Python") {
+    for (let i = 0; i < lines.length; i++) {
+      const line = lines[i];
+      if (/print\s*[^(]/.test(line) && !/print\s*\(/.test(line)) {
+        errors.push(`Error at line ${i + 1}: 'print' requires parentheses. Use print(...)`);
+      }
+    }
+    // Check for unclosed parentheses in print
+    const printMatches = code.match(/print\s*\([^)]*$/gm);
+    if (printMatches) {
+      errors.push("SyntaxError: Missing closing parenthesis ')' in print statement");
+    }
+    // Check for unclosed strings
+    for (let i = 0; i < lines.length; i++) {
+      const line = lines[i];
+      const singleQuotes = (line.match(/'/g) || []).length;
+      const doubleQuotes = (line.match(/"/g) || []).length;
+      if (singleQuotes % 2 !== 0) {
+        errors.push(`SyntaxError at line ${i + 1}: Unclosed string (missing ')`);
+      }
+      if (doubleQuotes % 2 !== 0) {
+        errors.push(`SyntaxError at line ${i + 1}: Unclosed string (missing ")`);
+      }
+    }
+  }
+
+  // JavaScript/TypeScript validation
+  if (language === "JavaScript" || language === "TypeScript") {
+    if (/console\.log\s*[^(]/.test(code) && !/console\.log\s*\(/.test(code)) {
+      errors.push("SyntaxError: 'console.log' requires parentheses");
+    }
+    // Check for missing semicolons on console.log lines
+    for (let i = 0; i < lines.length; i++) {
+      const line = lines[i].trim();
+      if (line.includes('console.log') && !line.endsWith(';') && !line.endsWith('{') && !line.endsWith('}')) {
+        errors.push(`Warning at line ${i + 1}: Missing semicolon ';' (optional but recommended)`);
+      }
+    }
+  }
+
+  // Java validation
+  if (language === "Java") {
+    if (/System\.out\.print/.test(code) && !/public\s+class/.test(code)) {
+      errors.push("Error: Missing class declaration");
+    }
+    if (/System\.out\.print/.test(code) && !/public\s+static\s+void\s+main/.test(code)) {
+      errors.push("Error: Missing 'public static void main(String[] args)' method");
+    }
+  }
+
+  return errors;
+};
+
 // Extract print statements from code based on language
 const extractOutputStatements = (code: string, language: string): string[] => {
   const outputs: string[] = [];
@@ -180,9 +314,31 @@ const simulateExecution = async (
 ): Promise<number> => {
   const startTime = Date.now();
 
+  onOutput({ type: "status", content: `Compiling ${language} code...` });
+
+  await new Promise((r) => setTimeout(r, 300));
+
+  // Validate syntax first
+  const syntaxErrors = validateSyntax(code, language);
+  
+  if (syntaxErrors.length > 0) {
+    onOutput({ type: "status", content: "Compilation failed!" });
+    await new Promise((r) => setTimeout(r, 200));
+    
+    for (const error of syntaxErrors) {
+      await new Promise((r) => setTimeout(r, 100));
+      onOutput({ type: "stderr", content: error });
+    }
+    
+    await new Promise((r) => setTimeout(r, 200));
+    onOutput({ type: "status", content: `Process exited with code 1 (${syntaxErrors.length} error${syntaxErrors.length > 1 ? 's' : ''} found)` });
+    
+    return Date.now() - startTime;
+  }
+
   onOutput({ type: "status", content: `Executing ${language} code...` });
 
-  await new Promise((r) => setTimeout(r, 500));
+  await new Promise((r) => setTimeout(r, 300));
 
   // Extract actual output statements from code
   const outputs = extractOutputStatements(code, language);
@@ -196,12 +352,7 @@ const simulateExecution = async (
     onOutput({ type: "status", content: "Program executed successfully (no output)" });
   }
 
-  if (code.includes("error") || code.includes("Error") || code.includes("throw")) {
-    await new Promise((r) => setTimeout(r, 200));
-    onOutput({ type: "stderr", content: "RuntimeError: An error occurred during execution" });
-  }
-
-  await new Promise((r) => setTimeout(r, 300));
+  await new Promise((r) => setTimeout(r, 200));
   onOutput({ type: "status", content: "Process exited with code 0" });
 
   return Date.now() - startTime;
