@@ -32,13 +32,76 @@ const detectLanguage = (fileName: string, code: string): string => {
 
   if (ext && extMap[ext]) return extMap[ext];
 
-  // Pattern-based detection
-  if (code.includes("def ") && code.includes(":")) return "Python";
-  if (code.includes("function ") || code.includes("const ") || code.includes("=>")) return "JavaScript";
-  if (code.includes("public static void main")) return "Java";
-  if (code.includes("#include")) return "C/C++";
-  if (code.includes("func ") && code.includes("package ")) return "Go";
-  if (code.includes("fn ") && code.includes("let ")) return "Rust";
+  // Real-time pattern-based detection as user types
+  const trimmedCode = code.trim();
+  if (!trimmedCode) return "Unknown";
+
+  // Python patterns
+  if (/\bdef\s+\w+\s*\(/.test(code) || /\bprint\s*\(/.test(code) || /\bimport\s+\w+/.test(code) || /\bclass\s+\w+.*:/.test(code) || /:\s*$/.test(code.split('\n')[0] || '')) {
+    return "Python";
+  }
+
+  // JavaScript/TypeScript patterns
+  if (/\bconst\s+\w+\s*=/.test(code) || /\blet\s+\w+\s*=/.test(code) || /\bvar\s+\w+\s*=/.test(code) || /\bfunction\s+\w+\s*\(/.test(code) || /=>\s*[{(]?/.test(code) || /console\.log\s*\(/.test(code)) {
+    // Check if TypeScript
+    if (/:\s*(string|number|boolean|any|void)\b/.test(code) || /interface\s+\w+/.test(code) || /type\s+\w+\s*=/.test(code)) {
+      return "TypeScript";
+    }
+    return "JavaScript";
+  }
+
+  // Java patterns
+  if (/public\s+(static\s+)?void\s+main/.test(code) || /public\s+class\s+\w+/.test(code) || /System\.out\.print/.test(code)) {
+    return "Java";
+  }
+
+  // C/C++ patterns
+  if (/#include\s*[<"]/.test(code) || /int\s+main\s*\(/.test(code) || /printf\s*\(/.test(code) || /cout\s*<</.test(code) || /std::/.test(code)) {
+    return "C/C++";
+  }
+
+  // Go patterns
+  if (/package\s+\w+/.test(code) || /func\s+\w+\s*\(/.test(code) || /fmt\.Print/.test(code)) {
+    return "Go";
+  }
+
+  // Rust patterns
+  if (/fn\s+\w+\s*\(/.test(code) && /let\s+(mut\s+)?\w+/.test(code) || /println!\s*\(/.test(code) || /use\s+std::/.test(code)) {
+    return "Rust";
+  }
+
+  // Ruby patterns
+  if (/\bputs\s+/.test(code) || /\bdef\s+\w+\s*$/.test(code) || /\bend\s*$/.test(code)) {
+    return "Ruby";
+  }
+
+  // PHP patterns
+  if (/<\?php/.test(code) || /\$\w+\s*=/.test(code) || /echo\s+/.test(code)) {
+    return "PHP";
+  }
+
+  // SQL patterns
+  if (/\bSELECT\b/i.test(code) || /\bINSERT\s+INTO\b/i.test(code) || /\bCREATE\s+TABLE\b/i.test(code)) {
+    return "SQL";
+  }
+
+  // HTML patterns
+  if (/<html/i.test(code) || /<div/i.test(code) || /<body/i.test(code) || /<head/i.test(code)) {
+    return "HTML";
+  }
+
+  // CSS patterns
+  if (/\{[\s\S]*:\s*[\w#]+;/.test(code) || /@media\s*\(/.test(code) || /\.\w+\s*\{/.test(code)) {
+    return "CSS";
+  }
+
+  // JSON patterns
+  if (/^\s*[\[{]/.test(code) && /[\]}]\s*$/.test(code)) {
+    try {
+      JSON.parse(code);
+      return "JSON";
+    } catch {}
+  }
 
   return "Unknown";
 };
